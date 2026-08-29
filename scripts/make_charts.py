@@ -17,7 +17,6 @@ CHARTS.mkdir(parents=True, exist_ok=True)
 SOURCE = "Source: OSHA Injury Tracking Application, Form 300A summary data, CY2025 (submissions through 15 Mar 2026)."
 RATE_LABEL = "Recordable cases per 100 full-time workers (TRIR)"
 BAR = "#3f6f8e"
-TOP_N = 10
 
 
 def _finish(fig, ax, path, note):
@@ -35,12 +34,19 @@ def _finish(fig, ax, path, note):
     print("wrote", path.relative_to(REPO))
 
 
-def _hbar(df, value, label_col, title, xlabel, path, note="", fmt="{:.2f}", xpad=1.28):
+def _hbar(df, value, label_col, title, xlabel, path, note="", fmt="{:.2f}", xpad=1.28,
+          rank_col=None, rank_label=""):
+    """rank_col appends each row's rank on the OTHER measure to its bar label, so the
+    reordering between rate and count is legible inside a single chart."""
     d = df.iloc[::-1]
     fig, ax = plt.subplots(figsize=(10, 0.42 * len(d) + 2.6))
     ax.barh(d[label_col], d[value], color=BAR)
-    for y, (v, n) in enumerate(zip(d[value], d.n_establishments)):
-        ax.text(v, y, f"  {fmt.format(v)}  (n={int(n):,})", va="center", fontsize=8, color="#333")
+    ranks = d[rank_col] if rank_col else [None] * len(d)
+    for y, (v, n, r) in enumerate(zip(d[value], d.n_establishments, ranks)):
+        label = f"  {fmt.format(v)}  (n={int(n):,})"
+        if r is not None:
+            label += f"   \u00b7  #{int(r)} {rank_label}"
+        ax.text(v, y, label, va="center", fontsize=8, color="#333")
     ax.set_xlabel(xlabel)
     ax.set_title(title, loc="left", fontsize=12, fontweight="bold")
     ax.set_xlim(0, d[value].max() * xpad)
@@ -55,16 +61,19 @@ def main():
     sector = pd.read_csv(TABLES / "sector_by_rate.csv")
     ranked = sector[sector.note != "insufficient n"]
 
-    _hbar(ranked.nsmallest(TOP_N, "rank_by_rate"), "trir", "sector",
-          f"Top {TOP_N} sectors by injury RATE", RATE_LABEL,
+    _hbar(ranked.sort_values("rank_by_rate"), "trir", "sector",
+          f"All {len(ranked)} sectors by injury rate", RATE_LABEL,
           CHARTS / "01_sector_by_rate.png",
-          note=" n = reporting establishments in the cleaned data. Rate = total cases / total hours for the sector.")
+          note=" n = reporting establishments in the cleaned data. Rate = total cases / total hours for the sector."
+               " Each bar also carries the sector's rank by raw case count (chart 02), so the reordering is readable here.",
+          xpad=1.84, rank_col="rank_by_count", rank_label="by count")
 
-    _hbar(ranked.nsmallest(TOP_N, "rank_by_count"), "total_cases", "sector",
-          f"Top {TOP_N} sectors by injury COUNT", "Total recordable cases",
+    _hbar(ranked.sort_values("rank_by_count"), "total_cases", "sector",
+          f"All {len(ranked)} sectors by injury count", "Total recordable cases",
           CHARTS / "02_sector_by_count.png",
-          note=" Count largely tracks sector employment; compare the ordering with chart 01.",
-          fmt="{:,.0f}", xpad=1.52)
+          note=" Count largely tracks sector employment; compare the ordering with chart 01."
+               " Each bar carries the sector's rank by rate.",
+          fmt="{:,.0f}", xpad=2.16, rank_col="rank_by_rate", rank_label="by rate")
 
     size = pd.read_csv(TABLES / "size_band.csv").sort_values("size_order")
     fig, ax = plt.subplots(figsize=(8.5, 5.0))
@@ -86,11 +95,13 @@ def main():
     _hbar(state, "trir", "state",
           "Top 10 states by injury rate", RATE_LABEL,
           CHARTS / "04_state_top10_rate.png",
-          note="\nStates with under 30 reporting establishments are excluded. Industry mix does not explain this ranking: giving Maine"
-               "\nits own mix of hours but the national rate for each sector yields an expected 3.54, against its actual 6.24 and a"
-               "\nnational 3.48 - mix accounts for 2.3% of the gap. Maine reports higher rates within nearly every sector (manufacturing"
-               "\n5.08 vs 2.54 nationally). The remaining candidate is difference in reporting practice and completeness between states."
-               "\nThis cannot distinguish more injuries occurring from more injuries being recorded and submitted.")
+          note="\nStates with under 30 reporting establishments are excluded. Neither industry mix nor ownership mix explains this"
+               "\nranking. Giving Maine its own mix of hours but the national rate for each group yields an expected 3.54 by sector"
+               "\nand 3.46 by ownership, against its actual 6.24 and a national 3.48: together they account for under 2% of the gap."
+               "\nMaine is less government-heavy than the country, not more. It runs 1.5x-3x the national rate inside every ownership"
+               "\ncategory and inside each of its largest sectors (manufacturing 5.08 vs 2.54 nationally). The remaining candidate is"
+               "\ndifference in reporting practice and completeness between states. This cannot distinguish more injuries occurring"
+               "\nfrom more injuries being recorded and submitted.")
 
 
 if __name__ == "__main__":
