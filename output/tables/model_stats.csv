@@ -1,0 +1,10 @@
+statistic,value,detail
+spearman_rho_rate_vs_count_rankings,0.7157894736842104,p=0.000386913; n=20 sectors
+ols_log_employees_coefficient,-0.17515691989477292,"95% CI [-0.1976, -0.1527]; p=6.52e-53"
+ols_log_employees_ci_low,-0.19757616121854188,95% lower bound
+ols_log_employees_ci_high,-0.15273767857100395,95% upper bound
+ols_trir_change_per_doubling,-0.12140952518062603,"coefficient x ln(2), TRIR points per doubling of employees"
+ols_r_squared,0.014975101138371971,share of variance explained
+ols_n,369996.0,clean establishments
+sectors_u20_above_250plus,16.0,of 20 sectors
+sectors_monotonic_across_4_bands,8.0,of 20 sectors
