@@ -1,0 +1,10 @@
+step,rule,rows_dropped
+1,year_filing_for missing or not 2025,6
+2,duplicate submission for the same establishment and year (kept the latest),0
+3,"total_hours_worked NULL or below 1,000",9046
+4,annual_average_employees NULL or 0,221
+5,naics_code invalid or sector not in the lookup,15
+6,a case-count column NULL or negative,0
+7,recordable cases greater than annual average employees,146
+8,"hours per employee below 100 or above 5,000",3853
+99,clean rows kept,369996

@@ -13,3 +13,9 @@ data/
 
 # macOS
 .DS_Store
+
+# Orchestration / kickoff prompts — scaffolding, not part of the deliverable.
+# PRD.md, CLAUDE.md and PROJECT_BRIEF.md stay tracked.
+KICKOFF_PROMPT.md
+*KICKOFF*.md
+*_PROMPT.md

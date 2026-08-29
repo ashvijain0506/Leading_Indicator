@@ -47,12 +47,18 @@ Who is in the data: establishments with 250+ employees outside the partially-exe
 
 ## 5. Locked definitions (settled at the M1 checkpoint, before any cleaning)
 
-- `recordable_cases = total_dafw_cases + total_djtr_cases + total_other_cases` (OSHA TCR definition). `total_deaths` is reported as its own count wherever it matters. **Decision required from Ashvi at M1:** keep this (recommended — comparable to OSHA and BLS published rates) or use the brief's deaths-inclusive version. Either is defensible; the README must say which.
+**Status: locked by Ashvi at the M1 checkpoint, 29 Aug 2026.** The decisions this section
+left open are now closed and recorded below.
+
+- `recordable_cases = total_dafw_cases + total_djtr_cases + total_other_cases` (OSHA Total Case Rate definition). **DECIDED at M1: deaths are excluded from the numerator** and `total_deaths` is carried as its own count on every aggregate. Chosen over the brief's deaths-inclusive version because it is directly comparable to published OSHA and BLS SOII rates, which is what makes the M2 sanity check meaningful. The README states which definition was used.
 - `trir = recordable_cases * 200000.0 / total_hours_worked`, per establishment, computed on the clean table only.
 - Optional second metric: `dart = (total_dafw_cases + total_djtr_cases) * 200000.0 / total_hours_worked`.
 - Aggregation: `SUM(recordable_cases) * 200000.0 / SUM(total_hours_worked)`. Never `AVG(trir)`. Every aggregate row also carries `n_establishments`, `total_hours`, `total_cases`, so the exposure behind each rate is visible.
 - Sector: first two digits of `naics_code`, with 31–33 → Manufacturing, 44–45 → Retail Trade, 48–49 → Transportation and Warehousing collapsed. The lookup lives in `sql/naics_sectors.csv` (table below). Do not derive sector names from `industry_description`.
-- Size band: OSHA's `size` code (under 20 / 20–99 / 100–249 / 250+). Cross-check against `annual_average_employees` and report the disagreement count as an audit finding; do not "fix" either column.
+  **NAICS vintages — DECIDED at M1: no exclusion.** M1 found rows coded against three NAICS vintages: 2022 (60.39%), 2012 (36.39%), 2017 (3.17%), plus 167 rows at `naics_year = 0`. NAICS has kept the same 20 two-digit sectors across all three vintages; revisions operate below the sector level. The largest 2022 change — eliminating subsector 454, Nonstore Retailers — redistributed those establishments to store retailers, still inside Retail Trade 44–45. Mixing vintages is therefore safe at two digits and would only bite at 4–6 digit detail. Recorded as a README limitation with the real split, not as an exclusion.
+- Size band: **DECIDED at M1 — derived from `annual_average_employees`, not from OSHA's `size` code.** Four bands: Under 20 / 20–99 / 100–249 / 250+.
+  Reasoning for the README: `annual_average_employees` measures the same population the hours denominator measures, while OSHA's `size` is *peak* headcount during the year. Deriving the band from the average makes numerator, denominator and grouping describe one thing. The alternative — keeping OSHA's code and patching only the 33,123 legacy `size = 2` rows — would band 91% of rows by peak and 9% by average, a hybrid definition. The M1 numbers argue against the patch directly: of the legacy rows, 23,401 imply 20–99 and 6,646 imply 100–249, totalling 30,047 — so roughly 3,076 rows carry the legacy 20–249 code while averaging outside 20–249 altogether.
+  OSHA's `size` code is retained in the clean table as a validation statistic only: `sql/08_size_band.sql` reports the percentage agreement between the code and the derived band, excluding legacy code 2. Neither column is "fixed".
 - Minimum exposure for any ranked group: 30 establishments. Smaller groups are shown but marked "insufficient n". Irrelevant at sector level, essential for anything finer.
 
 NAICS sector lookup (2022 NAICS, `sector_code,sector`):
@@ -105,20 +111,59 @@ Plus: null rate for every column, and value counts for `establishment_type` and 
 
 At the M1 checkpoint Ashvi decides which checks become exclusions. Recommended: the brief's five (checks 3, 4, 5, 6, 8) plus 1, 2, and 7 as exclusions; 9–12 as reported flags unless the counts are alarming. The decision is written into §7 before M2 starts.
 
-## 7. Exclusion rules (filled in at the M1 checkpoint)
+## 7. Exclusion rules (locked by Ashvi at the M1 checkpoint, 29 Aug 2026)
 
-Applied sequentially in this order so the waterfall reconciles exactly (`raw − Σ dropped = clean`). Fill the counts from `output/tables/drop_waterfall.csv`, never by hand.
+Applied sequentially in this order so the waterfall reconciles exactly (`raw − Σ dropped = clean`).
+Implemented in `sql/03_stage.sql`, which tags every raw row with the **first** step it fails, so a
+row lands on exactly one step and the reconciliation holds by construction. Counts are filled from
+`output/tables/drop_waterfall.csv`, never by hand.
+
+**Excluded (8 steps):** M1 checks 1, 2, 3, 4, 5, 6, 7, 8 and 10, collapsed into the eight steps below
+(M1 checks 3 and 4 merge into step 3; M1 check 10 becomes step 8).
+
+**Flag only, never excluded:** M1 checks 9, 11 and 12. Their counts are reported in the README.
 
 | step | rule | rows dropped |
 |---|---|---|
-| 1 | `year_filing_for <> 2025` | [TBD] |
-| 2 | duplicate `establishment_id` → keep latest `created_timestamp` | [TBD] |
-| 3 | `total_hours_worked` NULL or `< 1000` | [TBD] |
-| 4 | `annual_average_employees` NULL or `= 0` | [TBD] |
-| 5 | `naics_code` invalid or sector not in lookup | [TBD] |
-| 6 | case-count column NULL or negative | [TBD] |
-| 7 | `recordable_cases > annual_average_employees` | [TBD] |
-| 8 | (only if Ashvi promotes check 10) hours per employee outside 100–5,000 | [TBD] |
+| 1 | `year_filing_for` missing or not 2025 | 6 |
+| 2 | duplicate submission for the same establishment and year → keep latest `created_timestamp` | 0 |
+| 3 | `total_hours_worked` NULL or `< 1000` | 9,046 |
+| 4 | `annual_average_employees` NULL or `= 0` | 221 |
+| 5 | `naics_code` invalid or sector not in the lookup | 15 |
+| 6 | a case-count column NULL or negative | 0 |
+| 7 | recordable cases greater than annual average employees | 146 |
+| 8 | hours per employee below 100 or above 5,000 | 3,853 |
+| | **total excluded** | **13,287** |
+| | **clean rows kept** | **369,996** |
+
+Raw 383,283 rows → clean 369,996 rows: 13,287 excluded (3.47%). Counts read from `output/tables/drop_waterfall.csv`, generated by `sql/05_waterfall.sql`; the notebook asserts that they reconcile to the raw row count.
+
+Notes on two steps that were argued at the checkpoint:
+
+- **Step 2 is expected to drop 0 rows.** M1 established that the only repeated `establishment_id` is
+  the literal string `"TX"`, a state code shifted into the id column on two of the six corrupt tail
+  rows, and step 1 removes those first. The rule is kept anyway: a waterfall line reading
+  "duplicate submissions: 0" is better evidence than a missing rule — it shows de-duplication was
+  considered and measured, and it keeps the pipeline correct if it is ever pointed at another year's
+  file. **If step 2 is not 0, stop and report.**
+- **Step 8 was promoted from a flag to an exclusion.** It is the step that removes the
+  employee/hours concatenation rows in both directions: 81,170,689 employees against 170,689 hours
+  gives 0.002 hours per employee, while the 140-billion-hour rows give an absurdly high one. Because
+  aggregation sums hours before dividing, one surviving row of that kind could swamp a sector's
+  denominator.
+
+### Guards that apply to every query built on the clean table
+
+- Establishments reporting **zero recordable cases stay in the clean table**. They contribute hours
+  to every denominator. Filtering to `no_injuries_illnesses = 1` would inflate every rate in this
+  project. The count of zero-case clean rows is reported in `sql/06_overall.sql`.
+- Never `AVG(trir)`. Every aggregate rate is `SUM(cases) * 200000.0 / SUM(hours)`, and every
+  aggregate row carries `n_establishments`, `total_hours` and `total_cases`.
+- Nothing below sector / size band / state level. No ranking names an establishment or company.
+  Wording is "highest recordable-injury rate among reporting establishments", never "most dangerous".
+- Groups with fewer than 30 establishments are shown but marked "insufficient n" and excluded from
+  top-10 lists.
+- Numbers in notebook markdown come from a cell output above them. Nothing typed in by hand.
 
 ## 8. Milestones
 
