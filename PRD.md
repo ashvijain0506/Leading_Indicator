@@ -146,6 +146,14 @@ Notes on two steps that were argued at the checkpoint:
   "duplicate submissions: 0" is better evidence than a missing rule — it shows de-duplication was
   considered and measured, and it keeps the pipeline correct if it is ever pointed at another year's
   file. **If step 2 is not 0, stop and report.**
+- **`created_timestamp` is M/D/YYYY *text*, not a timestamp.** Values look like `2/27/2026`.
+  M1 confirmed `TRY_CAST(created_timestamp AS TIMESTAMP)` returns NULL for all 383,280
+  non-null values — 0 successes — so ordering by that cast would leave step 2's
+  "keep the latest submission" rule permanently inert, on this file and on every future
+  one. `sql/03_stage.sql` therefore orders by
+  `TRY_STRPTIME(created_timestamp, '%m/%d/%Y')`, which parses both `2/27/2026` and
+  `12/31/2026` and returns NULL on the corrupt tail rows, with the plain `TRY_CAST` kept
+  as a fallback. Approved by Ashvi at the M2 checkpoint.
 - **Step 8 was promoted from a flag to an exclusion.** It is the step that removes the
   employee/hours concatenation rows in both directions: 81,170,689 employees against 170,689 hours
   gives 0.002 hours per employee, while the 140-billion-hour rows give an absurdly high one. Because
