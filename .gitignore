@@ -1,0 +1,15 @@
+# Virtual environment
+.venv/
+
+# Raw and derived data — the OSHA CSV is 80 MB and is never committed
+data/
+
+# DuckDB database files
+*.duckdb
+*.duckdb.wal
+
+# Jupyter
+.ipynb_checkpoints/
+
+# macOS
+.DS_Store
