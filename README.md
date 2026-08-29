@@ -1,9 +1,6 @@
 # Leading Indicator — which US workplaces actually have the highest injury rates
 
-> **[ASHVI WRITES THIS]** — the opening finding sentence.
-> One sentence, in your own words, stating the finding with numbers. It should say that
-> ranking sectors by hours-normalised rate rather than raw case count reorders the top five,
-> and name the sharpest example. Everything below is evidence for that sentence.
+> Ranking industries by injury rate instead of raw case count replaces three of the top five sectors. Public Administration rises from 7th by total cases to 1st by rate, at 5.61 recordable cases per 100 full-time workers, while Construction falls from 5th to 15th. This project computes hours-normalized injury rates (TRIR) from 383,283 OSHA Form 300A establishment records for calendar year 2025, of which 369,996 passed data-quality checks, broken out by industry sector, establishment size, and state.
 
 Analysis of **369,996 US establishment records** from OSHA's Injury Tracking Application,
 Form 300A summary data for calendar year 2025 (submissions received through 15 March 2026).
@@ -303,8 +300,4 @@ PRD.md, PROJECT_BRIEF.md   scope, locked definitions, exclusion rules
 
 ---
 
-> **[ASHVI WRITES THIS]** — closing paragraph: what I would do differently.
-> A short paragraph in your own words on what you would change or extend given more time.
-> The negative-binomial count model with a hours offset is the obvious first item; beyond that,
-> what you would want from a second year of data, and what you would want to check about
-> state-level reporting practice before trusting the Maine result.
+> If I had more time, I would improve the model by using a negative-binomial approach for case counts with hours worked as an offset. The OLS regression was a useful first pass, but it does not handle the large number of establishments with zero reported cases particularly well. I would also compare multiple years of data to see whether these patterns remain consistent. For Maine, I was able to rule out industry mix and ownership mix as major explanations for its higher rate, since neither explained more than a small part of the gap. The next question I would explore is whether differences in state reporting practices play a role, although that cannot be tested using this dataset alone. The size result is also something I would investigate further: the relationship is statistically significant, but the model explains only 1.5% of the variation, which suggests that establishment size is only a small part of a much larger picture.
