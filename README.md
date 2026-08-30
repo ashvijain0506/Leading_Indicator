@@ -158,10 +158,11 @@ establishments whose peak headcount is far above their annual average.*
 mix explains this ranking; see section 4. Not a like-for-like comparison of workplace safety.*
 
 ### Excel dashboard — sector x size band
-> **[PLACEHOLDER]** `output/charts/05_dashboard.png` — screenshot of the Excel PivotTable
-> (rows = sector, columns = size band, values = calculated field
-> `TRIR = total_cases * 200000 / total_hours`, with colour-scale formatting and state/sector
-> slicers). Drop the file in at that path and this image will render.
+![Excel PivotTable dashboard](output/charts/05_dashboard.png)
+*Rows = sector, columns = size band, values = the calculated field
+`TRIR = total_cases * 200000 / total_hours`, with colour-scale conditional formatting and
+slicers for state and sector. Because a pivot calculated field is evaluated on the summed
+fields, the cells are sum-then-divide by construction and match the SQL to two decimals.*
 
 *Note on the state slicer: it includes military postal codes and Pacific territories with very
 few establishments — **AA, AE, AS, FM, MH, MP, PW**, between 1 and 13 establishments each — so
@@ -207,6 +208,17 @@ that step 1 removes first. There are no genuine duplicate establishments.
 4. Aggregate by sector, size band and state with `SUM(cases) * 200000 / SUM(hours)`, carrying n, hours and cases on every row.
 5. Draw the charts from the saved CSVs rather than re-querying, so a chart cannot disagree with the table behind it.
 
+### The aggregation rule, measured rather than asserted
+
+Step 4 is the load-bearing one, so `sql/18_averaging_counterfactual.sql` runs the wrong rule
+next to the right one. Averaging the per-establishment rates instead of summing cases and hours
+gives an overall **4.276 against the correct 3.475** — 23% high — and changes the rank of **14
+of the 20 sectors**. Public Administration, the top line of this README, falls from **1st to
+5th**, because an average gives a 9-employee shop the same vote as a 5,000-employee plant and
+small establishments are both numerous and volatile. This is a check on the method, not a
+finding about workplaces: it is the only place in the repo where `AVG(trir)` is computed, and
+nothing downstream reads it.
+
 ## Validation
 
 **Against a published national rate.** Overall TRIR **3.475** against **BLS SOII private
@@ -237,9 +249,11 @@ Administration, our top sector by rate, which is **68.43% local government** by 
 
 **The derived size bands are sound.** OSHA's own `size` code agrees with the band derived from
 `annual_average_employees` for **88.62% / 92.18% / 89.83% / 94.99%** of non-legacy rows across
-the four bands. The bands were derived rather than taken from OSHA's code because 33,123 rows
-(8.6%) still carry the legacy code 2 (20–249), retired in 2023, which overlaps two current
-bands and can belong to neither.
+the four bands. The bands were derived rather than taken from OSHA's code because **33,123 raw rows (8.64% of
+the 383,283 raw rows)** carry the legacy code 2 (20–249), retired in 2023, which overlaps two
+current bands and can belong to neither. **32,681 of them survive cleaning (8.83% of the
+369,996 clean rows)** — the two counts are different measurements of the same problem, before
+and after exclusions, not a discrepancy.
 
 ## Limits
 
@@ -265,6 +279,16 @@ bands and can belong to neither.
 - **43.32% of clean establishments (160,275) reported zero recordable cases and are retained.**
   They worked hours, and those hours belong in every denominator. Filtering them out would
   inflate every rate in this project.
+- **The exclusion rules test ratios, not magnitudes, and one filing can carry a real share of a
+  sector.** The largest single row in the clean table reports **455,430,263 hours against 4
+  recordable cases** — 2.93% of Health Care's total hours — and removing it moves that sector
+  from **4.294 to 4.424**. A row that size is almost certainly a company-level filing rather
+  than one establishment, but it passes every rule in `sql/03_stage.sql`, because 3,689 hours
+  per employee across 123,461 employees is entirely plausible and no rule tests absolute size.
+  Concentration is worst where the reporting population is thinnest: Finance and Insurance's
+  largest row is **14.26%** of that sector's hours (`output/tables/largest_row_sensitivity.csv`).
+  This is named as a known limit of the exclusion design rather than fixed — adding a magnitude
+  rule now would change the clean row count and therefore every number in this repository.
 
 ## How to run
 
@@ -294,7 +318,10 @@ notebooks/analysis.ipynb   the analysis, with outputs
 sql/                       every query, one per file, run through a small run() helper
 scripts/make_charts.py     charts, drawn from output/tables/ not from the database
 output/tables/             every result CSV; every number in this README comes from one
-output/charts/             the four PNGs
+output/charts/             five PNGs — the four matplotlib charts and the dashboard screenshot
+output/dashboard.xlsx      the Excel PivotTable, with slicers and conditional formatting
+output/pivot_source.csv    pre-aggregated pivot input (sector x size band x state)
+docs/INTERVIEW_NOTES.md    design decisions, query lifecycle, and likely questions
 PRD.md, PROJECT_BRIEF.md   scope, locked definitions, exclusion rules
 ```
 

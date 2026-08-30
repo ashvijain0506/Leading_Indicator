@@ -1,7 +1,7 @@
 # Interview notes — Leading Indicator
 
 Written from a fresh read of the finished repository: `README.md`, `PRD.md`, `PROJECT_BRIEF.md`,
-`CLAUDE.md`, all 17 files in `sql/`, `notebooks/analysis.ipynb` with its committed outputs,
+`CLAUDE.md`, every file in `sql/`, `notebooks/analysis.ipynb` with its committed outputs,
 `scripts/make_charts.py`, `output/dashboard.xlsx`, and every CSV in `output/tables/`.
 Everything below is what the repo actually contains. Where the README and the repo disagree,
 that is called out in its own section rather than smoothed over.
@@ -46,10 +46,10 @@ flowchart TD
     STAGE -->|"04_clean.sql — WHERE drop_step IS NULL"| CLEAN["clean_300a<br/>369,996 rows<br/>adds: trir, dart, size_band, size_order"]
     STAGE -->|"05_waterfall.sql"| WF["drop_waterfall.csv<br/>13,287 dropped, reconciles by construction"]
 
-    CLEAN --> AGG["Aggregation layer — sum-then-divide, always<br/>06_overall · 07_sector_rankings · 08_size_band · 09_state<br/>10_ownership · 11_maine_mix · 15_deaths_by_sector · 16_maine_ownership<br/>14_sector_size_check · 17_regression_input"]
+    CLEAN --> AGG["Aggregation layer — sum-then-divide, always<br/>06_overall · 07_sector_rankings · 08_size_band · 09_state<br/>10_ownership · 11_maine_mix · 15_deaths_by_sector · 16_maine_ownership<br/>14_sector_size_check · 17_regression_input · 18_averaging_counterfactual<br/>19_largest_row_sensitivity"]
     CLEAN --> EXP["Excel inputs<br/>12_clean_export.sql → output/clean_300a.csv (33.7 MB, gitignored)<br/>13_pivot_source.sql → output/pivot_source.csv (3,790 rows, tracked)"]
 
-    AGG --> TABLES["output/tables/*.csv — 11 files<br/>every number in the README comes from one of these<br/>+ model_stats.csv, written from Python (Spearman, OLS)"]
+    AGG --> TABLES["output/tables/*.csv — 13 files<br/>every number in the README comes from one of these<br/>+ model_stats.csv, written from Python (Spearman, OLS)"]
 
     TABLES -->|"scripts/make_charts.py<br/>reads CSVs, never re-queries the DB"| PNG["output/charts/01–04 .png"]
     EXP -->|"built by hand in Excel for Mac"| XLSX["output/dashboard.xlsx<br/>PivotTable: sector × size_band<br/>calculated field TRIR = total_cases*200000/total_hours<br/>colour scale + sector/state slicers<br/>→ screenshot 05_dashboard.png"]
@@ -315,6 +315,8 @@ stays clean.
 | Maine gap explained by ownership mix | −0.6% (expected 3.458) | notebook cell 41 |
 | Construction deaths / death rate | 180 / 2.176 per 100M hours (#2) | `deaths_by_sector.csv` |
 | sectors too thin to rank on deaths | 7 of 20 (fewer than 10 deaths) | `deaths_by_sector.csv` |
+| averaging counterfactual (method check) | 4.276 vs the correct 3.475; 14 of 20 sectors change rank | `averaging_counterfactual.csv` |
+| largest single row (Health Care) | 455,430,263 hours / 4 cases = 2.93% of sector hours; 4.294 → 4.424 without it | `largest_row_sensitivity.csv` |
 
 **Other verifications run in this session**, all from `CLAUDE.md`'s checklist:
 `git ls-files data/` is empty; nothing matching `.duckdb` or `.venv/` is tracked;
@@ -327,43 +329,53 @@ and 3.1140 in `sector_size_check.csv`.
 
 ---
 
-## 6. Where the README and the repo disagree
+## 6. Where the README and the repo disagreed — audit, and what was done
 
-Three real mismatches, plus two things a careful reader will trip over.
+Auditing the repo against its own documentation turned up three real mismatches and two things a
+careful reader would trip over. Every one of them was documentation drifting behind code that
+was itself correct. **All five were fixed in commit `m4c`**; the audit is kept here because the
+finding matters more than the fix — documentation and code drift apart by default, and the only
+way to know is to check them against each other line by line.
 
 1. **The Excel dashboard is described as a placeholder that is no longer missing.** The README's
    chart section still reads `> **[PLACEHOLDER]** output/charts/05_dashboard.png — … Drop the
    file in at that path and this image will render.` The file exists, is 458 KB, and was
    committed in `14e00be` ("m4: Excel dashboard and screenshot"). The image renders on GitHub
-   today; only the placeholder note is stale. **Fix: delete the blockquote, keep the caption.**
+   today; only the placeholder note was stale.
+   **Fixed:** blockquote replaced with the image and a caption naming the calculated field.
 
 2. **The README says four PNGs; there are five.** The repository listing at the bottom reads
    `output/charts/   the four PNGs`. There are five committed PNGs (01–04 plus the dashboard
-   screenshot). The same listing omits `output/dashboard.xlsx`, `output/pivot_source.csv` and
+   screenshot). The same listing omitted `output/dashboard.xlsx`, `output/pivot_source.csv` and
    `docs/`, all of which are tracked.
+   **Fixed:** listing corrected to five PNGs, with the three missing entries added.
 
 3. **`PRD.md` §8 names SQL files that do not exist.** The M2 milestone lists `sql/03_clean.sql`,
    `04_drop_waterfall.sql`, `05_sector.sql`, `06_size_band.sql`, `07_state.sql`. The repo has
    `03_stage.sql`, `04_clean.sql`, `05_waterfall.sql`, `06_overall.sql`, `07_sector_rankings.sql`,
    `08_size_band.sql`, `09_state.sql` — the staging step was inserted at 03 and everything after
    it shifted. PRD §7 was updated to the real names; §8 was not. The README does not name SQL
-   files, so it is not affected.
+   files, so it was not affected.
+   **Fixed:** §8 now lists the seven files as built, with a parenthetical recording the shift.
 
 4. **Two different legacy-`size` counts are both correct and easy to conflate.** The README's
    validation section cites "33,123 rows (8.6%) still carry the legacy code 2" — that is the
    count in the *raw* file (8.642% of 383,283), which is the right number for justifying why the
    bands were derived. The notebook separately reports 32,681 (8.83%) surviving into the *clean*
-   table. Neither is wrong; the README's "still carry" phrasing sits beside clean-table
-   statistics and invites the wrong reading.
+   table. Neither is wrong; the README's "still carry" phrasing sat beside clean-table
+   statistics and invited the wrong reading.
+   **Fixed:** both counts are now labelled "raw rows" and "clean rows" wherever either appears —
+   README validation section, PRD §5, and the M1 notebook markdown.
 
 5. **The committed notebook shows four charts; a re-run shows five.** Cell 47 displays every PNG
    via `sorted((OUTPUT_DIR/"charts").glob("*.png"))`. The committed outputs predate the Excel
-   screenshot, so they list four files. Re-running today embeds the screenshot as a fifth image.
-   Harmless, but the notebook and the chart directory are one commit out of step.
+   screenshot, so they listed four files. Re-running embeds the screenshot as a fifth image.
+   Harmless, but the notebook and the chart directory were one commit out of step.
+   **Fixed:** notebook re-executed and committed; its outputs now show all five.
 
 Two non-issues that look like issues and are not: the README's "3.47%" is 13,287/383,283 =
 3.466% rounded, and its `How to run` block runs `make_charts.py` after the notebook even though
-cell 47 already runs it as a subprocess — redundant, not wrong.
+that cell already runs it as a subprocess — redundant, not wrong. Both were left as they are.
 
 ---
 
@@ -394,10 +406,12 @@ deaths on a 200,000-hour base gives numbers like 0.0019 that no one can read.)
 
 **Q3. What would actually break if you averaged the per-establishment rates instead?**
 
-The headline finding would invert. Computed ad hoc for these notes — this is *not* in the
-pipeline or in `output/tables/`, precisely because the project's rule is never to compute it —
-`AVG(trir)` gives an overall figure of **4.276** against the correct **3.475**, and it reorders
-the sectors:
+The headline finding would invert. This was first computed ad hoc while writing these notes and
+is now a first-class result — `sql/18_averaging_counterfactual.sql` and
+`output/tables/averaging_counterfactual.csv`, the one place in the repo where `AVG(trir)` is
+computed, and it exists only to be reported against the correct figure. Averaging gives an
+overall **4.276** against the correct **3.475** (23% high) and changes the rank of **14 of the
+20 sectors**:
 
 | sector | rank, sum-then-divide | rank, average of rates |
 |---|---|---|
@@ -565,6 +579,9 @@ level-based. A row reporting 455 million hours for 123,461 employees passes ever
 (3,689 hours per employee is plausible) and contributes 2.93% of Health Care's total hours on 4
 recordable cases. Removing it would move Health Care from 4.294 to 4.424. Nothing here validates
 that any surviving row is *true* — OSHA does not validate these submissions either.
+`sql/19_largest_row_sensitivity.sql` measures this for every sector: in 12 of 20, the largest
+single row carries at least 1% of the sector's hours, and in Finance and Insurance it carries
+14.26%.
 
 ---
 
@@ -639,5 +656,7 @@ that any surviving row is *true* — OSHA does not validate these submissions ei
    would make the "insufficient n" rule quantitative instead of a flat n ≥ 30 threshold, and it
    would show honestly that Mining's 0.688 on 829 establishments is far less certain than
    Manufacturing's 2.542 on 58,329.
-5. **Fix the five README/repo mismatches in section 6** — half an hour of work, and every one of
-   them is the kind of thing a reviewer notices first.
+5. **Re-run the section 6 audit after any future change.** The five mismatches it found were all
+   documentation lagging behind code by a commit, and the same thing will happen the next time a
+   milestone lands. Reading the README against `output/tables/` and `git ls-files` takes twenty
+   minutes and catches exactly the errors a reviewer notices first.
