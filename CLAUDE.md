@@ -2,7 +2,7 @@
 
 Read `PROJECT_BRIEF.md` (domain spec, hard constraints) and `PRD.md` (milestones, acceptance criteria, locked definitions) before doing anything. On process, `PRD.md` wins; on scope limits, `PROJECT_BRIEF.md` wins. This file is the repo's operating rules and applies in every session.
 
-## Stack — nothing else without asking
+## Stack
 
 - macOS, Python 3 in `.venv`. Packages: `duckdb pandas matplotlib jupyter statsmodels openpyxl` (openpyxl only to verify the Excel file). Pinned in `requirements.txt`.
 - Plain SQL in `sql/*.sql`, one query per file, executed from the notebook through a small `run("NN_name.sql")` helper. No ORM, no pipeline framework, no cloud service, no ML library.
@@ -11,7 +11,7 @@ Read `PROJECT_BRIEF.md` (domain spec, hard constraints) and `PRD.md` (milestones
 
 ## How to work
 
-1. Explain before writing. Before each cell or query: what it does, why, and what output to expect. Ashvi must be able to defend every line in an interview; code she cannot explain is worse than no code.
+1. Before each cell or query: what it does, why, and what output to expect. 
 2. One cell at a time. Add the cell, execute the notebook (`jupyter nbconvert --to notebook --execute --inplace notebooks/analysis.ipynb`), read the real output, then move on. Never generate the whole notebook in one shot.
 3. Never invent numbers. Every figure in notebook markdown, the README, or the resume comes from a query that ran, saved under `output/tables/`. Not yet computed → `[TBD]`.
 4. Flag surprises. If the data looks odd, say so and stop; never filter silently. Never use `ignore_errors=true` in `read_csv`. Every excluded row is counted and its reason recorded.
