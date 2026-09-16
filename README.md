@@ -321,7 +321,6 @@ output/tables/             every result CSV; every number in this README comes f
 output/charts/             five PNGs — the four matplotlib charts and the dashboard screenshot
 output/dashboard.xlsx      the Excel PivotTable, with slicers and conditional formatting
 output/pivot_source.csv    pre-aggregated pivot input (sector x size band x state)
-docs/INTERVIEW_NOTES.md    design decisions, query lifecycle, and likely questions
 PRD.md, PROJECT_BRIEF.md   scope, locked definitions, exclusion rules
 ```
 
